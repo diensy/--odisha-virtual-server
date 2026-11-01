@@ -72,7 +72,31 @@ export function toImage(img) {
   };
 }
 
-export async function listDestinations({ category, q, featured, lang = 'en' } = {}) {
+// Destination content only changes when the seed script runs, so answers are kept in memory
+// for a few minutes instead of reading the full records from the database on every request.
+const MEMO_MS = 5 * 60 * 1000;
+const memo = new Map();
+function remember(key, load) {
+  const hit = memo.get(key);
+  if (hit && hit.until > Date.now()) return hit.value;
+  const value = load().catch((err) => {
+    memo.delete(key); // never keep a failure
+    throw err;
+  });
+  memo.set(key, { value, until: Date.now() + MEMO_MS });
+  return value;
+}
+
+// What a destination card needs, in every language; stories and long text are left out.
+const CARD_FIELDS = ['name', 'slug', 'category', 'tagline', 'summary', 'location', 'visitorInfo.suggestedDuration', 'heroImage', 'order', 'keywords']
+  .concat(...['hi', 'or'].map((l) => ['name', 'tagline', 'summary', 'district', 'visitorInfo.suggestedDuration'].map((k) => `translations.${l}.${k}`)))
+  .join(' ');
+
+export function listDestinations({ category, q, featured, lang = 'en' } = {}) {
+  return remember(`list:${lang}:${category ?? ''}:${q ?? ''}:${featured ? 1 : 0}`, () => loadDestinations({ category, q, featured, lang }));
+}
+
+async function loadDestinations({ category, q, featured, lang }) {
   const filter = { published: true };
   if (category) filter.category = category;
   if (featured) filter.featured = true;
@@ -88,7 +112,7 @@ export async function listDestinations({ category, q, featured, lang = 'en' } = 
       { 'translations.or.name': rx },
     ];
   }
-  const docs = await Destination.find(filter).sort({ order: 1, name: 1 }).populate('heroImage', HERO_FIELDS).lean();
+  const docs = await Destination.find(filter).select(CARD_FIELDS).sort({ order: 1, name: 1 }).populate('heroImage', HERO_FIELDS).lean();
   return docs.map((d) => toCard(d, lang));
 }
 
@@ -98,7 +122,11 @@ export async function getDestinationDoc(slug) {
   return doc;
 }
 
-export async function getDestinationDetail(slug, lang = 'en') {
+export function getDestinationDetail(slug, lang = 'en') {
+  return remember(`detail:${slug}:${lang}`, () => loadDestinationDetail(slug, lang));
+}
+
+async function loadDestinationDetail(slug, lang) {
   const doc = await getDestinationDoc(slug);
   const [images, related] = await Promise.all([getImages(doc._id), getRelated(doc, 4, lang)]);
   const l = localized(doc, lang);
@@ -123,9 +151,11 @@ export async function getImages(destinationId, limit = 24) {
   return imgs.map(toImage);
 }
 
-export async function getImagesBySlug(slug, limit, lang = 'en') {
-  const doc = await getDestinationDoc(slug);
-  return { destination: toCard(doc, lang), images: await getImages(doc._id, limit) };
+export function getImagesBySlug(slug, limit, lang = 'en') {
+  return remember(`images:${slug}:${limit}:${lang}`, async () => {
+    const doc = await getDestinationDoc(slug);
+    return { destination: toCard(doc, lang), images: await getImages(doc._id, limit) };
+  });
 }
 
 /** Other published destinations ordered by straight-line distance. */
