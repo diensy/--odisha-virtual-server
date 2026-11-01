@@ -50,8 +50,18 @@ Check it is running: `GET http://localhost:5000/api/health`.
 | `PROVIDER_CONTACT` | Yes | Contact email sent to OpenStreetMap and Wikimedia, as their policies require |
 | `OSRM_URL`, `OVERPASS_URLS`, `NOMINATIM_URL` | No | Self-hosted or paid map services |
 | `CHAT_RATE_LIMIT_PER_15_MIN` | No (30) | Chat messages per visitor |
+| `TRUST_PROXY` | No (1) | Proxies in front of the API: 1 on Render alone, 2 when the web app on Vercel forwards `/api` |
 
 The server reads `.env` only when it starts.
+
+## Deploying to Render
+
+1. In MongoDB Atlas, **Network Access → Add IP Address → Allow access from anywhere (0.0.0.0/0)**, because Render's addresses change.
+2. In Render, **New → Blueprint** and pick this repository. Render reads `render.yaml`: a free Node web service named `odisha-virtual-server`, built with `npm ci`, started with `npm start`, health-checked at `/api/health`, with `JWT_SECRET` generated for you.
+3. Fill in the values Render asks for: `MONGODB_URI` (your Atlas address, ending in `/odishavirtual?...`), `CLIENT_ORIGIN` (your Vercel address, e.g. `https://odisha-virtual-client.vercel.app`), `PROVIDER_CONTACT`, `ADMIN_EMAILS`, and optionally `GROQ_API_KEY`.
+4. Seed the database once, from your computer, with `MONGODB_URI` pointing at Atlas: `npm run seed`.
+
+On the free plan the service sleeps after about 15 minutes without traffic, so the first request after that can take up to a minute.
 
 ## How it is organised
 

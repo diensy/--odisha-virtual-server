@@ -1,0 +1,32 @@
+# Render Blueprint: New > Blueprint, pick this repository, then fill in the values marked
+# "sync: false" when Render asks for them.
+services:
+  - type: web
+    name: odisha-virtual-server
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      # The web app on Vercel forwards /api here, so there are two proxies in front.
+      - key: TRUST_PROXY
+        value: "2"
+      - key: MONGODB_URI
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PROVIDER_CONTACT
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b

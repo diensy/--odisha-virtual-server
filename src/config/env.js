@@ -24,6 +24,8 @@ const schema = z.object({
     ),
   NOMINATIM_URL: z.string().default('https://nominatim.openstreetmap.org'),
   CHAT_RATE_LIMIT_PER_15_MIN: z.coerce.number().default(30),
+  // Proxies in front of the API: 1 on Render alone, 2 when the web app on Vercel forwards /api.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 const parsed = schema.safeParse(process.env);

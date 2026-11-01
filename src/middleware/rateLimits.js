@@ -1,13 +1,18 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { env } from '../config/env.js';
 
 const limitResponse = (message) => ({ error: { code: 'RATE_LIMITED', message } });
+
+// Requests are counted per visitor IP. req.ip can be missing when a browser cancels a request
+// mid-way; fall back to the socket address instead of crashing.
+const keyGenerator = (req) => ipKeyGenerator(req.ip || req.socket?.remoteAddress || '0.0.0.0');
 
 export const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 120,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator,
   message: limitResponse('Too many requests. Please slow down.'),
 });
 
@@ -18,6 +23,7 @@ export const authLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator,
   message: limitResponse('Too many sign-in attempts. Please wait 15 minutes and try again.'),
 });
 
@@ -26,6 +32,7 @@ export const bookingLimiter = rateLimit({
   limit: 20,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator,
   message: limitResponse('You have submitted a lot of requests. Please try again later.'),
 });
 
@@ -35,5 +42,6 @@ export const chatLimiter = rateLimit({
   limit: env.CHAT_RATE_LIMIT_PER_15_MIN,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  keyGenerator,
   message: limitResponse('You have sent a lot of messages. Please wait a few minutes and try again.'),
 });
